@@ -2,26 +2,27 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
 	"log"
+	"net/http"
 	"os"
 )
-
-import "github.com/go-sql-driver/mysql"
 
 var db *sql.DB
 
 type Company struct {
-	ID           int
-	RrCd         int
-	Name         string
-	CompanyNameK string
-	CompanyNameH string
-	CompanyNameR string
-	CompanyUrl   string
-	CompanyType  int
-	EStatus      int
-	ESort        int
+	CompanyCd    int    `json:"company_cd"`
+	RrCd         int    `json:"rr_cd"`
+	Name         string `json:"name"`
+	CompanyNameK string `json:"company_name_k"`
+	CompanyNameH string `json:"company_name_h"`
+	CompanyNameR string `json:"company_name_r"`
+	CompanyUrl   string `json:"company_url"`
+	CompanyType  int    `json:"company_type"`
+	EStatus      int    `json:"e_status"`
+	ESort        int    `json:"e_sort"`
 }
 
 func main() {
@@ -34,6 +35,7 @@ func main() {
 		DBName:               "eki",
 		AllowNativePasswords: true,
 	}
+
 	// Get a database handle.
 	var err error
 	db, err = sql.Open("mysql", cfg.FormatDSN())
@@ -41,31 +43,53 @@ func main() {
 		log.Fatal(err)
 	}
 
-	pingErr := db.Ping()
-	if pingErr != nil {
-		log.Fatal(pingErr)
+	// Ping the database
+	if err := db.Ping(); err != nil {
+		log.Fatal(err)
 	}
-	fmt.Println("Connected!")
+	log.Println("Connected to the database!")
 
+	// DBからデータ取得
 	company, err := CompanyByName("JR北海道")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Company found: %v\n", company)
+	//fmt.Printf("Company found: %v\n", company)
+
+	// JSON化
+	companyJson, err := json.Marshal(company)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// リクエストハンドラーの設定
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "%s\n", companyJson)
+		log.Println("access '/'")
+	})
+
+	// サーバーの起動
+	log.Fatal(http.ListenAndServe(":8081", nil))
+
 }
 
 func CompanyByName(name string) ([]Company, error) {
-	var company []Company
+	var companies []Company
 
+	// SQLクエリの実行
 	rows, err := db.Query("SELECT * FROM companies WHERE company_name = ?", name)
 	if err != nil {
-		return nil, fmt.Errorf("companyByName %q: %v", name, err)
+		return nil, fmt.Errorf("failed to query company by name %q: %v", name, err)
 	}
 	defer rows.Close()
+
+	// レコードの処理
 	for rows.Next() {
 		var comp Company
 		if err := rows.Scan(
-			&comp.ID,
+			&comp.CompanyCd,
 			&comp.RrCd,
 			&comp.Name,
 			&comp.CompanyNameK,
@@ -76,12 +100,12 @@ func CompanyByName(name string) ([]Company, error) {
 			&comp.EStatus,
 			&comp.ESort,
 		); err != nil {
-			return nil, fmt.Errorf("companyByName %q: %v", name, err)
+			return nil, fmt.Errorf("failed to scan company by name %q: %v", name, err)
 		}
-		company = append(company, comp)
+		companies = append(companies, comp)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("companyByName %q: %v", name, err)
+		return nil, fmt.Errorf("failed to iterate over company rows by name %q: %v", name, err)
 	}
-	return company, nil
+	return companies, nil
 }
