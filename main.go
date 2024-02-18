@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
 	"os"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 var db *sql.DB
@@ -27,20 +29,23 @@ type Company struct {
 
 func main() {
 	// Capture connection properties.
-	cfg := mysql.Config{
-		User:                 os.Getenv("DBUSER"),
-		Passwd:               os.Getenv("DBPASS"),
-		Net:                  "tcp",
-		Addr:                 "127.0.0.1:3306",
-		DBName:               "eki",
-		AllowNativePasswords: true,
-	}
-
+	//cfg := mysql.Config{
+	//	//User:                 os.Getenv("DBUSER"),
+	//	//Passwd:               os.Getenv("DBPASS"),
+	//	//Net:                  "tcp",
+	//	//Addr:                 "127.0.0.1:3306",
+	//	DBName:               "eki",
+	//	AllowNativePasswords: true,
+	//}
 	// Get a database handle.
-	var err error
-	db, err = sql.Open("mysql", cfg.FormatDSN())
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("failed to load env", err)
+	}
+	//db, err = sql.Open("mysql", cfg.FormatDSN())
+	db, err = sql.Open("mysql", os.Getenv("DSN"))
+	if err != nil {
+		log.Fatal("failed to open db connection", err)
 	}
 
 	// Ping the database
