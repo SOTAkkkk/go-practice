@@ -11,3 +11,22 @@
 ```shell
 go run .
 ```
+
+## Linux用バイナリにコンパイル
+```shell
+GOOS=linux GOARCH=amd64 go build -o go-practice main.go
+```
+```shell
+chmod +x go-practice
+```
+
+## GCPデプロイ
+初期化
+```shell
+gcloud init  
+```
+
+App engineにデプロイ
+```shell
+gcloud app deploy
+```
